@@ -7,7 +7,7 @@ Yue, Zongsheng, Qian Zhao, Lei Zhang, and Deyu Meng. "Dual adversarial network: 
 ```
 
 
-## Datasets and Trained model file link:
+## Datasets and Trained model file download
 ### Datasets
 This project use SIDD-Medium-srgb as training dataset and SIDD-validation as validation dataset.
 
