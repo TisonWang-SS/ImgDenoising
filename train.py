@@ -11,24 +11,13 @@ from loss import *
 
 
 def train_UNetR(net, x, y, optimizer, params):
-    # for net_part in ['R', 'G', 'D']:
-    #     net[net_part].to(params['device'])
-    # x.to(params['device'])
-    # y.to(params['device'])
-
+    '''
+    training for Denoiser
+    '''
     net['R'].zero_grad()
     x_hat = y - net['R'](y)
 
-    # loss = loss_UNetR(net, x, y, x_hat, params)
-    alpha = params['alpha']
-    tau_R = params['tau_R']
-
-    mae_loss = F.l1_loss(x_hat, x, reduction='mean')
-    fake_x_data = torch.cat([x_hat, y], 1)
-    fake_x_loss = net['D'](fake_x_data).mean()
-    loss_x = -(1 - alpha) * fake_x_loss
-    loss_e = tau_R * mae_loss
-    loss = loss_x + loss_e
+    loss = loss_UNetR(net, x, y, x_hat, params)
 
     loss.backward()
     optimizer.step()
@@ -36,26 +25,13 @@ def train_UNetR(net, x, y, optimizer, params):
     return loss, x_hat
 
 def train_UNetG(net, x, y, optimizer, params, kernel):
-    # for net_part in ['R', 'G', 'D']:
-    #     net[net_part].to(params['device'])
-    # x.to(params['device'])
-    # y.to(params['device'])
-
+    '''
+    training for Generator
+    '''
     net['G'].zero_grad()
     y_hat = sample_generator(net['G'], x)
 
-    # loss = loss_UNetG(net, x, y, y_hat, params, kernel)
-    alpha = params['alpha']
-    tau_G = params['tau_G']
-    # kernel_size = params['kernel_size']
-
-    # kernel = get_gausskernel(kernel_size)
-
-    loss_mean = tau_G * mean_match(x, y, y_hat, kernel.to(x.device), 3)
-    fake_y_data = torch.cat([x, y_hat], 1)
-    fake_y_loss = net['D'](fake_y_data).mean()
-    loss_y = -alpha * fake_y_loss
-    loss = loss_y + loss_mean
+    loss = loss_UNetG(net, x, y, y_hat, params, kernel)
 
     loss.backward()
     optimizer.step()
@@ -63,39 +39,15 @@ def train_UNetG(net, x, y, optimizer, params, kernel):
     return loss, y_hat
 
 def train_Discriminator(net, x, y, optimizer, params):
-    # for net_part in ['R', 'G', 'D']:
-    #     net[net_part].to(params['device'])
-    # x.to(params['device'])
-    # y.to(params['device'])
-
+    '''
+    training for Discriminator
+    '''
     net['D'].zero_grad()
 
     real_data = torch.cat([x, y], 1)
     real_loss = net['D'](real_data).mean()
 
-    # loss = loss_Discriminator(net, x, y, real_loss, params)
-    alpha = params['alpha']
-    real_data = torch.cat([x, y], 1)
-    lambda_gp = params['lambda_gp']
-
-    # generator fake data
-    with torch.autograd.no_grad():
-        fake_y = sample_generator(net['G'], x)
-        fake_y_data = torch.cat([x, fake_y], 1)
-    fake_y_loss = net['D'](fake_y_data.data).mean()
-    grad_y_loss = gradient_penalty(real_data, fake_y_data, net['D'], lambda_gp)
-    loss_y = alpha * (fake_y_loss - real_loss)
-    loss_yg = alpha * grad_y_loss
-    # Denoiser fake data
-    with torch.autograd.no_grad():
-        fake_x = y - net['R'](y)
-        fake_x_data = torch.cat([fake_x, y], 1)
-    fake_x_loss = net['D'](fake_x_data.data).mean()
-    grad_x_loss = gradient_penalty(real_data, fake_x_data, net['D'], lambda_gp)
-    loss_x = (1-alpha) * (fake_x_loss - real_loss)
-    loss_xg = (1-alpha) * grad_x_loss
-
-    loss = loss_x + loss_xg + loss_y + loss_yg
+    loss = loss_Discriminator(net, x, y, real_loss, params)
 
     loss.backward()
     optimizer.step()
@@ -103,18 +55,21 @@ def train_Discriminator(net, x, y, optimizer, params):
     return loss, real_loss
 
 def train(net, train_dl, optimizer, params, epoch, kernel):
-    # for net_part in ['R', 'G', 'D']:
-    #     net[net_part].to(params['device'])
+    '''
+    network training
+    '''
+    # preparation and initialization
     n_batches = len(train_dl)
     optimizer = optimizer
-
     data_stream = tqdm(train_dl)
-
     train_loss = {l : 0 for l in ['R', 'G', 'D']}
 
+    # switch network to train mode
     for net_part in ['R', 'G', 'D']:
         net[net_part].train()
 
+    # update parameters in Discriminator every iteration
+    # update parameters in Denoiser and Generator every num_critic iterations
     for i, (imgs_noisy, imgs_gt) in enumerate(data_stream, start=1):
         imgs_noisy = imgs_noisy.to(params['device'], non_blocking=True)
         imgs_gt = imgs_gt.to(params['device'], non_blocking=True)
@@ -131,9 +86,11 @@ def train(net, train_dl, optimizer, params, epoch, kernel):
             loss_G, noisy_hat = train_UNetG(net, imgs_gt, imgs_noisy, optimizer['G'], params, kernel)
             train_loss['G'] += loss_G.item()
     
+    # adjust learning rate
     for op in ['R', 'G', 'D']:
         lr = adjust_learning_rate(optimizer[op], epoch, params, i, n_batches)
-        
+    
+    # log losses
     train_loss_epoch = {l : train_loss[l] / (i + 1) for l in ['R', 'G', 'D']}
     UNetR_loss_epoch = train_loss_epoch['R']
     UNetG_loss_epoch = train_loss_epoch['G']
@@ -142,6 +99,10 @@ def train(net, train_dl, optimizer, params, epoch, kernel):
           Discriminator_Loss: {Discriminator_loss_epoch:.4f},')
 
 def validate(net, val_dl, params, epoch):
+    '''
+    network validation
+    '''
+    # preparation and initialization
     net['R'].eval()
     data_stream = tqdm(val_dl)
 
@@ -149,6 +110,7 @@ def validate(net, val_dl, params, epoch):
     psnr_loss = []
     ssim_loss = []
 
+    # calculate metrics
     for i, (imgs_noisy, imgs_gt) in enumerate(data_stream, start=1):
         imgs_noisy = imgs_noisy.to(params['device'], non_blocking=True)
         imgs_gt = imgs_gt.to(params['device'], non_blocking=True)
@@ -165,6 +127,7 @@ def validate(net, val_dl, params, epoch):
     psnr_loss = sum(psnr_loss) / len(psnr_loss)
     ssim_loss = sum(ssim_loss) / len(ssim_loss)
 
+    # log
     print(f'#####Valid##### Epoch: {epoch}, mae_loss: {mae_loss:.4f}, psnr_loss: {psnr_loss:.4f}, \
           ssim_loss: {ssim_loss:.4f},')
 

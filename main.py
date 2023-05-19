@@ -2,19 +2,21 @@
 # -*- coding:utf-8 -*-
 
 import torch
-from torch import nn
 from torch.utils.data import DataLoader
 import os
 import numpy as np
+import time
+import datetime
 
 from DenoisingDatasets import SIDDTrainDataset, SIDDValDataset
-from data_augmentation import get_train_transforms, get_valid_transforms
+# from data_augmentation import get_train_transforms, get_valid_transforms
 
 from network import UNetR, UNetG, Discriminator
 from loss import get_gausskernel
 
 from train import train, validate
 
+# training parameters
 params = {
     'device': torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu'),
     'seed': 415,
@@ -49,6 +51,7 @@ def main():
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = True
 
+    # prepare dataset and dataloader
     train_dataset = SIDDTrainDataset(params['train_data_file'], transform=None)
     val_dataset = SIDDValDataset(params['val_data_file'], transform=None)
 
@@ -57,6 +60,7 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=params['val_batch_size'], shuffle=False, 
                             num_workers=params['num_workers'], pin_memory=True)
     
+    # build network
     netR = UNetR(in_channels=3, out_channels=3, depth=5, wf=32).to(params['device'])
     netG = UNetG(in_channels=3, out_channels=3, depth=5, wf=32).to(params['device'])
     netD = Discriminator(6, 64).to(params['device'])
@@ -66,6 +70,7 @@ def main():
         'D': netD
     }
 
+    # optimizer for each component of network
     optimizerR = torch.optim.AdamW(netR.parameters(), lr=params['lr'], weight_decay=params['weight_decay'])
     optimizerG = torch.optim.AdamW(netG.parameters(), lr=params['lr'], weight_decay=params['weight_decay'])
     optimizerD = torch.optim.AdamW(netD.parameters(), lr=params['lr'], weight_decay=params['weight_decay'])
@@ -84,21 +89,29 @@ def main():
         os.mkdir(params['checkpoints_path'])
 
     print(f'Training on {params["device"]}.')
+    start = time.time()
 
+    # training progress
     for epoch in range(1, params['epochs'] + 1):
         train(net, train_loader, optimizer, params, epoch, kernel)
         validate(net, val_loader, params, epoch)
+
+        # save checkpoint
+        now = datetime.datetime.now()
         torch.save(
             {
                 'R': net['R'].state_dict(),
                 'G': net['G'].state_dict(),
                 'D': net['D'].state_dict(),
             },
-            os.path.join(params['checkpoints_path'], f'model_{epoch}epochs_weights.pth')
+            os.path.join(params['checkpoints_path'], f'{now.strftime("%Y_%m_%d_%H_%M_%S")}_model_{epoch}epochs_weights.pth')
             # f"./checkpoints/model_{epoch}epochs_weights.pth"
         )
     
     print('-' * 60)
+    end = time.time()
+    running_time = end - start
+    print(f'Total training time: {str(datetime.timedelta(seconds=running_time))}')
     print('Done!')
 
 if __name__ == '__main__':

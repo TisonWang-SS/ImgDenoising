@@ -10,10 +10,11 @@ import math
 from skimage import img_as_ubyte
 from network import sample_generator
 
-# kernel = get_gausskernel(5, chn=3)
-
 
 def loss_UNetR(net, x, y, x_hat, params):
+    '''
+    loss function for noise denoiser Unet in the network
+    '''
     alpha = params['alpha']
     tau_R = params['tau_R']
 
@@ -27,11 +28,11 @@ def loss_UNetR(net, x, y, x_hat, params):
     return loss
 
 def loss_UNetG(net, x, y, y_hat, params, kernel):
+    '''
+    loss function for noise generator Unet in the network
+    '''
     alpha = params['alpha']
     tau_G = params['tau_G']
-    # kernel_size = params['kernel_size']
-
-    # kernel = get_gausskernel(kernel_size)
 
     loss_mean = tau_G * mean_match(x, y, y_hat, kernel.to(x.device))
     fake_y_data = torch.cat([x, y_hat], 1)
@@ -42,6 +43,9 @@ def loss_UNetG(net, x, y, y_hat, params, kernel):
     return loss
 
 def loss_Discriminator(net, x, y, real_loss, params):
+    '''
+    loss function for Discriminator CNN in the network
+    '''
     alpha = params['alpha']
     real_data = torch.cat([x, y], 1)
     lambda_gp = params['lambda_gp']
@@ -66,6 +70,9 @@ def loss_Discriminator(net, x, y, real_loss, params):
     loss = loss_x + loss_xg + loss_y + loss_yg
 
     return loss
+
+
+# help functions in loss
 
 def get_gausskernel(p, chn=3):
     '''

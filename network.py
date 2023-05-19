@@ -9,11 +9,17 @@ from torch import nn
 
 
 class UNetR(UNet):
+    '''
+    network structure for Denoiser
+    '''
     def __init__(self, in_channels=3, out_channels=3, depth=5, wf=6, padding=True, batch_norm=False, slope=0.2):
         super().__init__(in_channels, out_channels, depth, wf, padding, batch_norm, slope)
 
 
 class UNetG(UNet):
+    '''
+    network structure for Generator
+    '''
     def __init__(self, in_channels=3, out_channels=3, depth=5, wf=6, padding=True, batch_norm=False, slope=0.2):
         super().__init__(in_channels, out_channels, depth, wf, padding, batch_norm, slope)
     
@@ -21,6 +27,9 @@ class UNetG(UNet):
         return in_chs + 1
 
 def sample_generator(netG, x):
+    '''
+    get a fake noisy image with Generator using a clean image
+    '''
     z = torch.randn([x.shape[0], 1, x.shape[2], x.shape[3]], device=x.device)
     x1 = torch.cat([x, z], dim=1)
     noise = netG(x1)
@@ -29,6 +38,9 @@ def sample_generator(netG, x):
 
 
 class Discriminator(nn.Module):
+    '''
+    network structure for Discriminator
+    '''
     def __init__(self, in_channels=6, ndf=64, slope=0.2):
         super().__init__()
         self.ndf = ndf

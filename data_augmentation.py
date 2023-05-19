@@ -4,7 +4,11 @@ import numpy as np
 import random
 
 # data augmentation
+
 def get_train_transforms(size):
+    '''
+    perform random augmentation on train dataset
+    '''
     return albumentations.Compose(
         [
             albumentations.Resize(size, size),
@@ -24,6 +28,9 @@ def get_train_transforms(size):
     )
 
 def get_valid_transforms():
+    '''
+    perform random augmentation on valid dataset
+    '''
     return albumentations.Compose(
         [
             # albumentations.Resize(size, size),

@@ -2,7 +2,6 @@
 
 import torch
 from torch import nn
-import torch.nn.functional as F
 
 
 def conv_down(in_chn, out_chn, bias=False):

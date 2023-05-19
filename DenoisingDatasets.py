@@ -11,7 +11,13 @@ from data_augmentation import random_augmentation
 
 
 class SIDDTrainDataset(Dataset):
+    '''
+    Train Dataset of SIDD
+    '''
     def __init__(self, h5_path, patch_size=128, transform=None):
+        '''
+        init a SIDDTrainDataset Object with default patch_size=128
+        '''
         super().__init__()
         self.h5_path = h5_path
         self.patch_size = patch_size
@@ -25,9 +31,16 @@ class SIDDTrainDataset(Dataset):
             self.length = self.num_images * self.num_patches_per_img
     
     def __len__(self):
+        '''
+        get length of dataset
+        '''
         return self.length
 
     def __getitem__(self, index):
+        '''
+        get train image patch pairs on given index
+        image patch is cropped on the original SIDD images
+        '''
         img_idx = index // self.num_patches_per_img
         patch_idx = index % self.num_patches_per_img
         patch_idx_h = patch_idx // (self.img_size // self.patch_size )
@@ -54,14 +67,18 @@ class SIDDTrainDataset(Dataset):
         else:
             patch_noisy = torch.from_numpy(patch_noisy.transpose((2, 0, 1)))
             patch_gt = torch.from_numpy(patch_gt.transpose((2, 0, 1)))
-            # patch_noisy = patch_noisy.float()
-            # patch_gt = patch_gt.float()
         
         return patch_noisy, patch_gt
 
 
 class SIDDValDataset(Dataset):
+    '''
+    Valid Dataset of SIDD
+    '''
     def __init__(self, h5_path, transform=None):
+        '''
+        init a SIDDValDataset Object with default patch_size=128
+        '''
         super().__init__()
         self.h5_path = h5_path
         self.transform = transform
@@ -72,9 +89,16 @@ class SIDDValDataset(Dataset):
             self.length = self.num_images
     
     def __len__(self):
+        '''
+        get length of dataset
+        '''
         return self.length
         
     def __getitem__(self, index):
+        '''
+        get valid image patch pairs on given index
+        image patch is cropped on the original SIDD images
+        '''
         with h5.File(self.h5_path, 'r') as h5_file:
             img_noisy = h5_file[self.keys[index]][:,:,:self.chs]
             img_gt = h5_file[self.keys[index]][:,:,self.chs:]
